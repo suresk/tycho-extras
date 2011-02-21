@@ -22,14 +22,25 @@ public class MirrorRepositoryMojo extends AbstractMojo {
 	private static String MIRROR_METADATA_NAME = "org.eclipse.equinox.p2.metadata.repository.mirrorApplication";
 	
 	/**
-	 * @parameter expression="${sourceRepository}"
+	 * @parameter expression="${sourceRepositories}"
+	 * @required
 	 */
-	private String sourceRepository;
+	private List<String> sourceRepositories;
 	
 	/**
-	 * @parameter default-value="repository"
+	 * @parameter default-value="repository" expression="${destinationRepository}"
 	 */
-	private String destination;
+	private String destinationRepository;
+	
+	/**
+	 * @parameter expression="${destinationMetadataRepository}"
+	 */
+	private String destinationMetadataRepository;
+	
+	/**
+	 * @parameter expression="${destinationArtifactRepository}"
+	 */
+	private String destinationArtifactRepository;
 	
 	/**
 	 * @parameter expression="${verbose}"
@@ -59,18 +70,49 @@ public class MirrorRepositoryMojo extends AbstractMojo {
 
     /** @component */
     private P2ApplicationLauncher launcher;
+    
+    private void configureLocalRepos() {
+    	if(destinationArtifactRepository == null) {
+    		destinationArtifactRepository = destinationRepository;
+    	}
+    	
+    	if(destinationMetadataRepository == null) {
+    		destinationMetadataRepository = destinationRepository;
+    	}
+    }
 
 	public void execute() throws MojoExecutionException, MojoFailureException {
+		configureLocalRepos();
+		for(String source : sourceRepositories) {
+			System.out.println(String.format("Building repository for %s.", source));
+			buildRepositories(source);
+		}
+	}
+	
+	private void buildRepositories(String source) throws MojoFailureException, MojoExecutionException {
+		generateArtifactRepository(source);
+		generateMetadataRepository(source);
+	}
+	
+	private void generateMetadataRepository(String source) throws MojoFailureException, MojoExecutionException {
+		generateRepository(source, destinationMetadataRepository, MIRROR_METADATA_NAME);
+	}
+	
+	private void generateArtifactRepository(String source) throws MojoFailureException, MojoExecutionException {
+		generateRepository(source, destinationArtifactRepository, MIRROR_ARTIFACT_NAME);
+	}
+	
+	private void generateRepository(String source, String destination, String applicationName) throws MojoExecutionException, MojoFailureException {
 		try {
-	        File artifactRepositoryDir = new File( destination ).getCanonicalFile();
+	        File targetDir = new File(destination).getCanonicalFile();
 	        
             List<String> contentArgs = new ArrayList<String>();
-            contentArgs.add( "-source" );
-            contentArgs.add( sourceRepository );
+            contentArgs.add("-source");
+            contentArgs.add(source);
             
-	        launcher.setWorkingDirectory( project.getBasedir() );
-	        launcher.setApplicationName( MIRROR_ARTIFACT_NAME );
-	        launcher.addArguments("-destination", artifactRepositoryDir.toString());
+	        launcher.setWorkingDirectory(project.getBasedir());
+	        launcher.setApplicationName(applicationName);
+	        launcher.addArguments("-destination", targetDir.toString());
 	        
 	        if(verbose) {
 	        	launcher.addArguments("-verbose");
@@ -84,55 +126,16 @@ public class MirrorRepositoryMojo extends AbstractMojo {
 	        	launcher.addArguments("-ignoreErrors");
 	        }
 	        
-	        launcher.addArguments( contentArgs.toArray( new String[contentArgs.size()] ) );
+	        launcher.addArguments(contentArgs.toArray(new String[contentArgs.size()]));
 	        
-	        int result = launcher.execute( forkedProcessTimeoutInSeconds );
+	        int result = launcher.execute(forkedProcessTimeoutInSeconds);
 	        getLog().info("Done running command. Result: " + result);
-            if ( result != 0 )
-            {
-                throw new MojoFailureException( "P2 publisher return code was " + result );
+	        
+            if (result != 0){
+                throw new MojoFailureException("P2 publisher return code was " + result);
             }
-        }
-        catch ( IOException ioe )
-        {
-            throw new MojoExecutionException( "Unable to execute the publisher", ioe );
-        }
-        
-		try {
-	        File artifactRepositoryDir = new File( destination ).getCanonicalFile();
-	        
-            List<String> contentArgs = new ArrayList<String>();
-            contentArgs.add( "-source" );
-            contentArgs.add( sourceRepository );
-            
-	        launcher.setWorkingDirectory( project.getBasedir() );
-	        launcher.setApplicationName( MIRROR_METADATA_NAME);
-	        launcher.addArguments("-destination", artifactRepositoryDir.toString());
-	        
-	        if(verbose) {
-	        	launcher.addArguments("-verbose");
-	        }
-	        
-	        if(compare) {
-	        	launcher.addArguments("-compare");
-	        }
-	        
-	        if(ignoreErrors) {
-	        	launcher.addArguments("-ignoreErrors");
-	        }
-	        
-	        launcher.addArguments( contentArgs.toArray( new String[contentArgs.size()] ) );
-	        
-	        int result = launcher.execute( forkedProcessTimeoutInSeconds );
-	        getLog().info("Done running command. Result: " + result);
-            if ( result != 0 )
-            {
-                throw new MojoFailureException( "P2 publisher return code was " + result );
-            }
-        }
-        catch ( IOException ioe )
-        {
-            throw new MojoExecutionException( "Unable to execute the publisher", ioe );
+        } catch ( IOException ioe ) {
+            throw new MojoExecutionException("Unable to execute the publisher", ioe);
         }
 	}
 
