@@ -9,7 +9,6 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
-import org.sonatype.tycho.p2.facade.internal.P2ApplicationLauncher;
 
 /**
  * @goal mirror-repository
@@ -69,7 +68,7 @@ public class MirrorRepositoryMojo extends AbstractMojo {
     private MavenProject project;
 
     /** @component */
-    private P2ApplicationLauncher launcher;
+    private P2Launcher launcher;
     
     private void configureLocalRepos() {
     	if(destinationArtifactRepository == null) {
@@ -104,6 +103,7 @@ public class MirrorRepositoryMojo extends AbstractMojo {
 	
 	private void generateRepository(String source, String destination, String applicationName) throws MojoExecutionException, MojoFailureException {
 		try {
+			launcher.clearArgs();
 	        File targetDir = new File(destination).getCanonicalFile();
 	        
             List<String> contentArgs = new ArrayList<String>();
